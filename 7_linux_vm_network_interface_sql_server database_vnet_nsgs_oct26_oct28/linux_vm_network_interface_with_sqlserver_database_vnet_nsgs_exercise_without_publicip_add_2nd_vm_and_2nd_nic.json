@@ -1,0 +1,423 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "0.0.0.1",
+    "parameters": {
+        "vmusername": {
+            "type": "string",
+            "metadata": {
+                "description": "description"
+            }
+        },
+        "vmpassword": {
+            "type": "securestring",
+            "metadata": {
+                "description": "description"
+            }
+        },
+        "vnet-cidr": {
+            "type": "string",
+            "metadata": {
+                "description": "address space of vnet"
+            },
+            "defaultValue": "10.0.0.0/16"
+        },
+        "subnet-cidrs": {
+            "type": "array",
+            "metadata": {
+                "description": "cidr ranges of subnet"
+            },
+            "defaultValue": [
+                "10.0.0.0/24",
+                "10.0.1.0/24",
+                "10.0.2.0/24"
+            ]
+        },
+        "subnet-names": {
+            "type": "array",
+            "metadata": {
+                "description": "subnet names"
+            },
+            "defaultValue": [
+                "web",
+                "app",
+                "db"
+            ]
+        },
+        "sqlusername": {
+            "type": "string",
+            "metadata": {
+                "description": "username for the database server"
+            }
+        },
+        "sqlpassword": {
+            "type": "securestring",
+            "metadata": {
+                "description": "password for database server"
+            }
+        }
+    },
+    "variables": {
+        "location": "[resourceGroup().location]",
+        "allow": "Allow",
+        "protocol": "Tcp",
+        "inbound": "Inbound",
+        "anywhere": "*",
+        "sshport": "22",
+        "httpport": "80",
+        "httpsport": "443",
+        "appport": "80"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Network/networkSecurityGroups",
+            "apiVersion": "2020-11-01",
+            "name": "webnsg",
+            "location": "[variables('location')]",
+            "tags": {
+                "project": "security_group",
+                "env": "dev"
+            },
+            "properties": {
+                "securityRules": [
+                    {
+                        "name": "allowssh",
+                        "properties": {
+                            "access": "[variables('allow')]",
+                            "protocol": "[variables('protocol')]",
+                            "priority": 300,
+                            "direction": "[variables('inbound')]",
+                            "sourceAddressPrefix": "[variables('anywhere')]",
+                            "sourcePortRange": "[variables('anywhere')]",
+                            "destinationPortRange": "[variables('sshport')]",
+                            "destinationAddressPrefix": "[variables('anywhere')]"
+                        }
+                    },
+                    {
+                        "name": "allowhttp",
+                        "properties": {
+                            "access": "[variables('allow')]",
+                            "protocol": "[variables('protocol')]",
+                            "priority": 310,
+                            "direction": "[variables('inbound')]",
+                            "sourceAddressPrefix": "[variables('anywhere')]",
+                            "sourcePortRange": "[variables('anywhere')]",
+                            "destinationPortRange": "[variables('httpport')]",
+                            "destinationAddressPrefix": "[variables('anywhere')]"
+                        }
+                    },
+                    {
+                        "name": "allowhttps",
+                        "properties": {
+                            "access": "[variables('allow')]",
+                            "protocol": "[variables('protocol')]",
+                            "priority": 320,
+                            "direction": "[variables('inbound')]",
+                            "sourceAddressPrefix": "[variables('anywhere')]",
+                            "sourcePortRange": "[variables('anywhere')]",
+                            "destinationPortRange": "[variables('httpsport')]",
+                            "destinationAddressPrefix": "[variables('anywhere')]"
+                        }
+                    }
+                ]
+
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', 'ntier')]"
+            ]
+        },
+        {
+            "name": "appnsg",
+            "type": "Microsoft.Network/networkSecurityGroups",
+            "apiVersion": "2020-11-01",
+            "location": "[variables('location')]",
+            "properties": {
+                "securityRules": [
+                    {
+                        "name": "allowssh",
+                        "properties": {
+                            "access": "[variables('allow')]",
+                            "protocol": "[variables('protocol')]",
+                            "priority": 300,
+                            "direction": "[variables('inbound')]",
+                            "sourceAddressPrefix": "[parameters('vnet-cidr')]",
+                            "sourcePortRange": "[variables('anywhere')]",
+                            "destinationPortRange": "[variables('sshport')]",
+                            "destinationAddressPrefix": "[variables('anywhere')]"
+                        }
+                    },
+                    {
+                        "name": "allowappport",
+                        "properties": {
+                            "access": "[variables('allow')]",
+                            "protocol": "[variables('protocol')]",
+                            "priority": 310,
+                            "direction": "[variables('inbound')]",
+                            "sourceAddressPrefix": "[parameters('vnet-cidr')]",
+                            "sourcePortRange": "[variables('anywhere')]",
+                            "destinationPortRange": "[variables('appport')]",
+                            "destinationAddressPrefix": "[variables('anywhere')]"
+                        }
+                    }
+                ]
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', 'ntier')]"
+            ]
+        },
+        {
+            "name": "ntier",
+            "type": "Microsoft.Network/virtualNetworks",
+            "apiVersion": "2020-11-01",
+            "location": "[variables('location')]",
+            "tags": {
+                "displayName": "ntier-vnet"
+            },
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "[parameters('vnet-cidr')]"
+                    ]
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Network/virtualNetworks/subnets",
+            "apiVersion": "2020-11-01",
+            "name": "[concat('ntier','/',parameters('subnet-names')[copyIndex()])]",
+            "properties": {
+                "addressPrefix": "[parameters('subnet-cidrs')[copyIndex()]]"
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', 'ntier')]"
+            ],
+            "copy": {
+                "name": "subnetcopy",
+                "count": "[length(parameters('subnet-cidrs'))]",
+                "mode": "Serial",
+                "batchSize": 1
+        
+            }
+        },
+ {
+    "name": "qtdbserverfromarm12",
+    "type": "Microsoft.Sql/servers",
+    "apiVersion": "2022-02-01-preview",
+    "location": "[variables('location')]",
+    "tags": {
+        "displayName": "qtdbserverfromarm12"
+    },
+    "properties": {
+        "administratorLogin": "[parameters('sqlusername')]",
+        "administratorLoginPassword": "[parameters('sqlpassword')]"
+    },
+    "resources": [
+        {
+            "type": "firewallRules",
+            "apiVersion": "2022-02-01-preview",
+            "dependsOn": [
+                "[resourceId('Microsoft.Sql/servers', 'qtdbserverfromarm12')]"
+            ],
+            "location": "[variables('location')]",
+            "name": "AllowAllWindowsAzureIps",
+            "properties": {
+                "startIpAddress": "0.0.0.0",
+                "endIpAddress": "255.255.255.255"
+            }
+        }
+    ]
+ },
+ {
+    "name": "qtdbserverfromarm12/sampledb12",
+    "type": "Microsoft.Sql/servers/databases",
+    "apiVersion": "2022-02-01-preview",
+    "location": "[variables('location')]",
+    "tags": {
+        "displayName": "sampledb0"
+    },
+    "sku": {
+        "name": "Basic"
+    },
+    "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers','qtdbserverfromarm12')]"
+    ],
+    "properties": {
+        
+        }
+ },
+{
+    "name": "lsip",
+    "type": "Microsoft.Network/publicIPAddresses",
+    "apiVersion": "2020-11-01",
+    "location": "[variables('location')]", 
+    "tags": {
+        "displayName": "PublicIPAddress"
+    },
+    "properties": {
+        "publicIPAllocationMethod": "Dynamic",
+        "dnsSettings": {
+            "domainNameLabel": "lsip90441"
+        }
+    }
+},
+{
+    "name": "9044nic",
+    "type": "Microsoft.Network/networkInterfaces",
+    "apiVersion": "2020-11-01",
+    "location": "[variables('location')]",
+    "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', 'ntier')]",
+        "[resourceId('Microsoft.Network/networkSecurityGroups', 'webnsg')]",
+        "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'ntier', parameters('subnet-names')[0])]",
+        "[resourceId('Microsoft.Network/publicIPAddresses', 'lsip')]"
+    ],
+    "tags": {
+        "displayName": "ubuntuVM1-NetworkInterface"
+    },
+    "properties": {
+        "ipConfigurations": [
+            {
+                "name": "ipConfig1",
+                "properties": {
+                    "privateIPAllocationMethod": "Dynamic",
+                    "publicIPAddress": {
+                        "id": "[resourceId('Microsoft.Network/publicIPAddresses', 'lsip')]"
+                    },
+                    "subnet": {
+                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'ntier', parameters('subnet-names')[0])]",
+                        "properties": {
+                                    "networkSecurityGroup": {
+                                        "id": "[resourceId('Microsoft.Network/networkSecurityGroups','webnsg')]"
+                                    }
+                                }
+                            }              
+                        }
+                    }
+                ]
+            }
+        },
+   {
+    "name": "vm9044vm",
+    "type": "Microsoft.Compute/virtualMachines",
+    "apiVersion": "2021-03-01",
+    "location": "[variables('location')]",
+    "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces', '9044nic')]"
+    ],
+    "tags": {
+        "displayName": "ubuntuVM1"
+    },
+    "properties": {
+        "hardwareProfile": {
+            "vmSize": "Standard_B1s"
+        },
+        "osProfile": {
+            "computerName": "computer9044",
+            "adminUsername": "[parameters('vmusername')]",
+            "adminPassword": "[parameters('vmpassword')]"
+        },
+        "storageProfile": {
+            "imageReference": {
+                "publisher": "Canonical",
+                "offer": "UbuntuServer",
+                "sku": "18.04-LTS",
+                "version": "latest"
+            },
+            "osDisk": {
+                "name": "ubuntuVM1-OSDisk",
+                "caching": "ReadWrite",
+                "createOption": "FromImage",
+                "managedDisk": {
+                    "storageAccountType": "Standard_LRS"
+                    }
+                }
+            },
+        "networkProfile": {
+            "networkInterfaces": [
+                {
+                    "id": "[resourceId('Microsoft.Network/networkInterfaces', '9044nic')]"
+                }
+            ]
+        }
+        
+    }
+},
+{
+    "name": "9044nic2",
+    "type": "Microsoft.Network/networkInterfaces",
+    "apiVersion": "2020-11-01",
+    "location": "[variables('location')]",
+    "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', 'ntier')]",
+        "[resourceId('Microsoft.Network/networkSecurityGroups', 'appnsg')]",
+        "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'ntier', parameters('subnet-names')[1])]"
+    ],
+    "tags": {
+        "displayName": "ubuntuVM1-NetworkInterface2"
+    },
+    "properties": {
+        "ipConfigurations": [
+            {
+                "name": "ipConfig2",
+                "properties": {
+                    "privateIPAllocationMethod": "Dynamic",
+                    "subnet": {
+                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'ntier', parameters('subnet-names')[1])]",
+                        "properties": {
+                                    "networkSecurityGroup": {
+                                        "id": "[resourceId('Microsoft.Network/networkSecurityGroups','appnsg')]"
+                                    }
+                                }
+                            }              
+                        }
+                    }
+                ]
+            }
+        },
+   {
+    "name": "vm9044vm2",
+    "type": "Microsoft.Compute/virtualMachines",
+    "apiVersion": "2021-03-01",
+    "location": "[variables('location')]",
+    "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces', '9044nic2')]"
+    ],
+    "tags": {
+        "displayName": "ubuntuVM2"
+    },
+    "properties": {
+        "hardwareProfile": {
+            "vmSize": "Standard_B1s"
+        },
+        "osProfile": {
+            "computerName": "computer90442",
+            "adminUsername": "[parameters('vmusername')]",
+            "adminPassword": "[parameters('vmpassword')]"
+        },
+        "storageProfile": {
+            "imageReference": {
+                "publisher": "Canonical",
+                "offer": "UbuntuServer",
+                "sku": "18.04-LTS",
+                "version": "latest"
+            },
+            "osDisk": {
+                "name": "ubuntuVM2-OSDisk",
+                "caching": "ReadWrite",
+                "createOption": "FromImage",
+                "managedDisk": {
+                    "storageAccountType": "Standard_LRS"
+                    }
+                }
+            },
+        "networkProfile": {
+            "networkInterfaces": [
+                {
+                    "id": "[resourceId('Microsoft.Network/networkInterfaces', '9044nic2')]"
+                }
+            ]
+        }
+        
+    }
+}
+]
+}

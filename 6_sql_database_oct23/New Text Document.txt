@@ -1,0 +1,21 @@
+copy this file from oct_22 folder last file for making changes to it
+use bottom shortcut mode as arm-sql-servers and enter thatsol
+now in this give any name rest will change whereever that name is there
+and now give name properties administratorlogin, password as parameters of sql
+use bottom shortcut mode as arm-sql-db and enter thatsol
+now in this give any name rest will change whereever that name is there
+enter sku details bottom and remove sku properties inside data with or without data we can deploy sir removed
+
+
+now starting give sql usernmae, sql password data
+while deploying template in portal shouid give sqlserver login details
+
+just in case for more parameters folow below
+if u just want to see parameters and filethen just press on starting near parameters
+"Select or create a parameter file to enable full validation" and press on All parameters up and save
+then you will get same data file of copy in that folder with bottom below data and then we can pass many parameters if required
+"sqlusername": {
+            "value": "" // TODO: Fill in parameter value
+        },
+        "sqlpassword": {
+            "value": "" // TODO: Fill in parameter value

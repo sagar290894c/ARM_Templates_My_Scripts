@@ -1,0 +1,79 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "0.0.0.1",
+    "parameters": {
+        "vnet-name": {
+            "type": "string",
+            "metadata": {
+                "description": "name of vnet"
+            },
+            "defaultValue": "vnet9044"
+        },
+        "vnet-cidr": {
+            "type": "string",
+            "metadata": {
+                "description": "address space of vnet"
+            },
+            "defaultValue": "10.0.0.0/16"
+        },
+        "subnet-cidrs": {
+            "type": "array",
+            "metadata": {
+                "description": "cidr ranges of subnet"
+            },
+            "defaultValue": [
+                "10.0.0.0/24",
+                "10.0.1.0/24",
+                "10.0.2.0/24"
+            ]
+        },
+        "subnet-names": {
+            "type": "array",
+            "metadata": {
+                "description": "subnet names"
+            },
+            "defaultValue": [
+                "web",
+                "app",
+                "db"
+            ]
+        }
+    },
+    "resources": [
+        {
+            "name": "[parameters('vnet-name')]",
+            "type": "Microsoft.Network/virtualNetworks",
+            "apiVersion": "2020-11-01",
+            "location": "[resourceGroup().location]",
+            "tags": {
+                "displayName": "anyname"
+            },
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "[parameters('vnet-cidr')]"
+                    ]
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Network/virtualNetworks/subnets",
+            "apiVersion": "2020-11-01",
+            "name": "[concat(parameters('vnet-name'),'/',parameters('subnet-names')[copyIndex()])]",
+            "properties": {
+                "addressPrefix": "[parameters('subnet-cidrs')[copyIndex()]]"
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnet-name'))]"
+            ],
+            "copy": {
+                "name": "subnetcopy",
+                "count": "[length(parameters('subnet-cidrs'))]",
+                "mode": "Serial"
+        
+            }
+        }
+        
+
+    ]
+}

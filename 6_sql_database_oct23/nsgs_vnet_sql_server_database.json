@@ -1,0 +1,226 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "0.0.0.1",
+    "parameters": {
+        "vnet-cidr": {
+            "type": "string",
+            "metadata": {
+                "description": "address space of vnet"
+            },
+            "defaultValue": "10.0.0.0/16"
+        },
+        "subnet-cidrs": {
+            "type": "array",
+            "metadata": {
+                "description": "cidr ranges of subnet"
+            },
+            "defaultValue": [
+                "10.0.0.0/24",
+                "10.0.1.0/24",
+                "10.0.2.0/24"
+            ]
+        },
+        "subnet-names": {
+            "type": "array",
+            "metadata": {
+                "description": "subnet names"
+            },
+            "defaultValue": [
+                "web",
+                "app",
+                "db"
+            ]
+        },
+        "sqlusername": {
+            "type": "string",
+            "metadata": {
+                "description": "username for the database server"
+            }
+        },
+        "sqlpassword": {
+            "type": "securestring",
+            "metadata": {
+                "description": "password for database server"
+            }
+        }
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Network/networkSecurityGroups",
+            "apiVersion": "2020-11-01",
+            "name": "webnsg",
+            "location": "[resourceGroup().location]",
+            "tags": {
+                "project": "security_group",
+                "env": "dev"
+            },
+            "properties": {
+                "securityRules": [
+                    {
+                        "name": "allowssh",
+                        "properties": {
+                            "access": "Allow",
+                            "protocol": "Tcp",
+                            "priority": 300,
+                            "direction": "Inbound",
+                            "sourceAddressPrefix": "*",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "22",
+                            "destinationAddressPrefix": "*"
+                        }
+                    },
+                    {
+                        "name": "allowhttp",
+                        "properties": {
+                            "access": "Allow",
+                            "protocol": "Tcp",
+                            "priority": 310,
+                            "direction": "Inbound",
+                            "sourceAddressPrefix": "*",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "80",
+                            "destinationAddressPrefix": "*"
+                        }
+
+                    },
+                    {
+                        "name": "allowhttps",
+                        "properties": {
+                            "access": "Allow",
+                            "protocol": "Tcp",
+                            "priority": 320,
+                            "direction": "Inbound",
+                            "sourceAddressPrefix": "*",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "443",
+                            "destinationAddressPrefix": "*"
+                        }
+
+                    }
+                ]
+
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', 'ntier')]"
+            ]
+        },
+        {
+            "name": "appnsg",
+            "type": "Microsoft.Network/networkSecurityGroups",
+            "apiVersion": "2020-11-01",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "securityRules": [
+                    {
+                        "name": "allowssh",
+                        "properties": {
+                            "protocol": "Tcp",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "22",
+                            "sourceAddressPrefix": "[parameters('vnet-cidr')]",
+                            "destinationAddressPrefix": "*",
+                            "access": "Allow",
+                            "priority": 300,
+                            "direction": "Inbound"
+                        }
+                    },
+                    {
+                        "name": "allowappport",
+                        "properties": {
+                            "protocol": "Tcp",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "8080",
+                            "sourceAddressPrefix": "[parameters('vnet-cidr')]",
+                            "destinationAddressPrefix": "*",
+                            "access": "Allow",
+                            "priority": 310,
+                            "direction": "Inbound"
+                        }
+                    }
+                ]
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', 'ntier')]"
+            ]
+        },
+        {
+            "name": "ntier",
+            "type": "Microsoft.Network/virtualNetworks",
+            "apiVersion": "2020-11-01",
+            "location": "[resourceGroup().location]",
+            "tags": {
+                "displayName": "ntier-vnet"
+            },
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "[parameters('vnet-cidr')]"
+                    ]
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Network/virtualNetworks/subnets",
+            "apiVersion": "2020-11-01",
+            "name": "[concat('ntier','/',parameters('subnet-names')[copyIndex()])]",
+            "properties": {
+                "addressPrefix": "[parameters('subnet-cidrs')[copyIndex()]]"
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', 'ntier')]"
+            ],
+            "copy": {
+                "name": "subnetcopy",
+                "count": "[length(parameters('subnet-cidrs'))]",
+                "mode": "Serial"
+        
+            }
+        },
+ {
+    "name": "qtdbserverfromarm",
+    "type": "Microsoft.Sql/servers",
+    "apiVersion": "2022-02-01-preview",
+    "location": "[resourceGroup().location]",
+    "tags": {
+        "displayName": "qtdbserverfromarm"
+    },
+    "properties": {
+        "administratorLogin": "[parameters('sqlusername')]",
+        "administratorLoginPassword": "[parameters('sqlpassword')]"
+    },
+    "resources": [
+        {
+            "type": "firewallRules",
+            "apiVersion": "2014-04-01",
+            "dependsOn": [
+                "[resourceId('Microsoft.Sql/servers', 'qtdbserverfromarm')]"
+            ],
+            "location": "[resourceGroup().location]",
+            "name": "AllowAllWindowsAzureIps",
+            "properties": {
+                "startIpAddress": "0.0.0.0",
+                "endIpAddress": "255.255.255.255"
+            }
+        }
+    ]
+ },
+ {
+    "name": "qtdbserverfromarm/sampledb",
+    "type": "Microsoft.Sql/servers/databases",
+    "apiVersion": "2022-02-01-preview",
+    "location": "[resourceGroup().location]",
+    "tags": {
+        "displayName": "sampledb"
+    },
+    "sku": {
+        "name": "Basic"
+    },
+    "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers','qtdbserverfromarm')]"
+    ],
+    "properties": {
+        
+    }
+ }
+]
+}
