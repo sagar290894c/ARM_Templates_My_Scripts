@@ -5,7 +5,7 @@
         {
             "type": "Microsoft.Network/virtualNetworks",
             "apiVersion": "2020-11-01",
-            "name": "helloarm",
+            "name": "hiiarm",
             "location": "East US",
             "properties": {
                 "addressSpace": {
